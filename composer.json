@@ -1,13 +1,11 @@
 {
     "name": "namingo/plexdns",
     "description": "A unified, multi-provider DNS management tool",
-    "require": {
-        "php": ">=8.2.0",
-        "ext-pdo": "*"
-    },
     "homepage": "https://github.com/getnamingo/plexdns",
     "license": "MIT",
     "require": {
+        "php": ">=8.2.0",
+        "ext-pdo": "*",
         "guzzlehttp/guzzle": "^7.8",
         "vultr/vultr-php": "^1.0",
         "badcow/dns": "^4.2",
