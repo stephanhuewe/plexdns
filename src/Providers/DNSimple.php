@@ -8,20 +8,10 @@ use PDO;
 class DNSimple implements DnsHostingProviderInterface {
     private $client;
     private $account_id;
-    private $dbConfig;
-    private $pdo;
+    private PDO $pdo;
     
-    public function __construct($config) {
-        // Load DB configuration
-        $this->dbConfig = \FOSSBilling\Config::getProperty('db', []);
-        
-        try {
-            $dsn = $this->dbConfig["type"] . ":host=" . $this->dbConfig["host"] . ";port=" . $this->dbConfig["port"] . ";dbname=" . $this->dbConfig["name"];
-            $this->pdo = new PDO($dsn, $this->dbConfig['user'], $this->dbConfig['password']);
-            $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        } catch (\PDOException $e) {
-            throw new \Exception("Connection failed: " . $e->getMessage());
-        }
+    public function __construct($config, PDO $pdo) {
+        $this->pdo = $pdo;
 
         $token = $config['apikey'];
         if (empty($token)) {
@@ -98,36 +88,13 @@ class DNSimple implements DnsHostingProviderInterface {
             
             $response = $this->client->zones->createRecord($this->account_id, $domainName, $record);
             $recordId = $response->getData()->id;
-            
-            try {              
-                $sql = "SELECT id FROM service_dns WHERE domain_name = :domainName LIMIT 1";
-                $stmt = $this->pdo->prepare($sql);
-                $stmt->bindParam(':domainName', $domainName, PDO::PARAM_STR);
-                $stmt->execute();
 
-                if ($stmt->rowCount() > 0) {
-                    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-                    $domainId = $row['id'];
-                } else {
-                    throw new \Exception("Domain name does not exist.");
-                }
-            
-                $sql = "UPDATE service_dns_records SET recordId = :recordId WHERE type = :type AND host = :subname AND value = :value AND domain_id = :domain_id";
-                $stmt = $this->pdo->prepare($sql);
-                $stmt->bindParam(':recordId', $recordId, PDO::PARAM_STR);
-                $stmt->bindParam(':type', $rrsetData['type'], PDO::PARAM_STR);
-                $stmt->bindParam(':subname', $rrsetData['subname'], PDO::PARAM_STR);
-                $stmt->bindParam(':value', $rrsetData['records'][0], PDO::PARAM_STR);
-                $stmt->bindParam(':domain_id', $domainId, PDO::PARAM_INT);
-                $stmt->execute();
-
-                if ($stmt->rowCount() === 0) {
-                    throw new \Exception("No DB update made. Check if the domain name exists.");
-                }
-            } catch (\PDOException $e) {
-                throw new \Exception("Error updating zoneId: " . $e->getMessage());
+            try {
+                saveRecordId($this->pdo, $domainName, $recordId, $rrsetData);
+            } catch (\Exception $e) {
+                echo "Error creating record: " . $e->getMessage() . "\n";
             }
-                
+
             return true;
         } catch (\Exception $e) {
             throw new \Exception("Error creating record: " . $e->getMessage());
@@ -148,32 +115,8 @@ class DNSimple implements DnsHostingProviderInterface {
 
     public function modifyRRset($domainName, $subname, $type, $rrsetData) {
         try {
-            $sql = "SELECT id FROM service_dns WHERE domain_name = :domainName LIMIT 1";
-            $stmt = $this->pdo->prepare($sql);
-            $stmt->bindParam(':domainName', $domainName, PDO::PARAM_STR);
-            $stmt->execute();
+            $recordId = getRecordId($this->pdo, $domainName, $type, $subname);
 
-            if ($stmt->rowCount() > 0) {
-                $row = $stmt->fetch(PDO::FETCH_ASSOC);
-                $domainId = $row['id'];
-            } else {
-                throw new \Exception("Domain name does not exist.");
-            }
-
-            $sql = "SELECT recordId FROM service_dns_records WHERE type = :type AND host = :subname AND domain_id = :domain_id LIMIT 1";
-            $stmt = $this->pdo->prepare($sql);
-            $stmt->bindParam(':type', $type, PDO::PARAM_STR);
-            $stmt->bindParam(':subname', $subname, PDO::PARAM_STR);
-            $stmt->bindParam(':domain_id', $domainId, PDO::PARAM_INT);
-            $stmt->execute();
-
-            if ($stmt->rowCount() > 0) {
-                $row = $stmt->fetch(PDO::FETCH_ASSOC);
-                $recordId = $row['recordId'];
-            } else {
-                throw new \Exception("Error: No record found with name '$subname' and type '$type'");
-            }
-            
             $record = [];
 
             if (isset($type)) {
@@ -214,31 +157,7 @@ class DNSimple implements DnsHostingProviderInterface {
 
     public function deleteRRset($domainName, $subname, $type, $value) {
         try {
-            $sql = "SELECT id FROM service_dns WHERE domain_name = :domainName LIMIT 1";
-            $stmt = $this->pdo->prepare($sql);
-            $stmt->bindParam(':domainName', $domainName, PDO::PARAM_STR);
-            $stmt->execute();
-
-            if ($stmt->rowCount() > 0) {
-                $row = $stmt->fetch(PDO::FETCH_ASSOC);
-                $domainId = $row['id'];
-            } else {
-                throw new \Exception("Domain name does not exist.");
-            }
-
-            $sql = "SELECT recordId FROM service_dns_records WHERE type = :type AND host = :subname AND domain_id = :domain_id LIMIT 1";
-            $stmt = $this->pdo->prepare($sql);
-            $stmt->bindParam(':type', $type, PDO::PARAM_STR);
-            $stmt->bindParam(':subname', $subname, PDO::PARAM_STR);
-            $stmt->bindParam(':domain_id', $domainId, PDO::PARAM_INT);
-            $stmt->execute();
-
-            if ($stmt->rowCount() > 0) {
-                $row = $stmt->fetch(PDO::FETCH_ASSOC);
-                $recordId = $row['recordId'];
-            } else {
-                throw new \Exception("Error: No record found with name '$subname' and type '$type'");
-            }
+            $recordId = getRecordId($this->pdo, $domainName, $type, $subname);
             
             $response = $this->client->zones->deleteRecord($this->account_id, $domainName, $recordId);
             

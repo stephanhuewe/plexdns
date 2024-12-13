@@ -10,20 +10,10 @@ class Hetzner implements DnsHostingProviderInterface {
     private $baseUrl = "https://dns.hetzner.com/api/v1/";
     private $client;
     private $headers;
-    private $dbConfig;
-    private $pdo;
+    private PDO $pdo;
 
-    public function __construct($config) {
-        // Load DB configuration
-        $this->dbConfig = \FOSSBilling\Config::getProperty('db', []);
-
-        try {
-            $dsn = $this->dbConfig["type"] . ":host=" . $this->dbConfig["host"] . ";port=" . $this->dbConfig["port"] . ";dbname=" . $this->dbConfig["name"];
-            $this->pdo = new PDO($dsn, $this->dbConfig['user'], $this->dbConfig['password']);
-            $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        } catch (\PDOException $e) {
-            throw new \Exception("Connection failed: " . $e->getMessage());
-        }
+    public function __construct($config, PDO $pdo) {
+        $this->pdo = $pdo;
         
         $token = $config['apikey'];
         if (empty($token)) {
@@ -52,17 +42,9 @@ class Hetzner implements DnsHostingProviderInterface {
             $zoneId = $body['zone']['id'] ?? null;
             
             try {
-                $sql = "UPDATE service_dns SET zoneId = :zoneId WHERE domain_name = :domainName";
-                $stmt = $this->pdo->prepare($sql);
-                $stmt->bindParam(':zoneId', $zoneId, PDO::PARAM_STR);
-                $stmt->bindParam(':domainName', $domainName, PDO::PARAM_STR);
-                $stmt->execute();
-
-                if ($stmt->rowCount() === 0) {
-                    throw new \Exception("No DB update made. Check if the domain name exists.");
-                }
+                saveZoneId($this->pdo, $domainName, $zoneId);
             } catch (\PDOException $e) {
-                throw new \Exception("Error updating zoneId: " . $e->getMessage());
+                throw new \Exception("Error saving zoneId: " . $e->getMessage());
             }
             
             return json_decode($response->getBody(), true);
@@ -93,17 +75,8 @@ class Hetzner implements DnsHostingProviderInterface {
         }
         
         try {
-            $sql = "SELECT zoneId FROM service_dns WHERE domain_name = :domainName LIMIT 1";
-            $stmt = $this->pdo->prepare($sql);
-            $stmt->bindParam(':domainName', $domainName, PDO::PARAM_STR);
-            $stmt->execute();
-
-            if ($stmt->rowCount() > 0) {
-                $row = $stmt->fetch(PDO::FETCH_ASSOC);
-                $zoneId = $row['zoneId'];
-            } else {
-                throw new \Exception("Domain name does not exist.");
-            }
+            $result = getZoneId($this->pdo, $domainName);
+            $zoneId = $result['zoneId'];
         } catch (\PDOException $e) {
             throw new \Exception("Error fetching zoneId: " . $e->getMessage());
         }
@@ -122,24 +95,15 @@ class Hetzner implements DnsHostingProviderInterface {
             throw new \exception('Request failed: ' . $e->getMessage());
         }
     }
-    
+
     public function createRRset($domainName, $rrsetData) {
         if (empty($domainName)) {
             throw new \Exception("Domain name cannot be empty");
         }
-        
-        try {
-            $sql = "SELECT zoneId FROM service_dns WHERE domain_name = :domainName LIMIT 1";
-            $stmt = $this->pdo->prepare($sql);
-            $stmt->bindParam(':domainName', $domainName, PDO::PARAM_STR);
-            $stmt->execute();
 
-            if ($stmt->rowCount() > 0) {
-                $row = $stmt->fetch(PDO::FETCH_ASSOC);
-                $zoneId = $row['zoneId'];
-            } else {
-                throw new \Exception("Domain name does not exist.");
-            }
+        try {
+            $result = getZoneId($this->pdo, $domainName);
+            $zoneId = $result['zoneId'];
         } catch (\PDOException $e) {
             throw new \Exception("Error fetching zoneId: " . $e->getMessage());
         }
@@ -159,31 +123,8 @@ class Hetzner implements DnsHostingProviderInterface {
             if ($response->getStatusCode() === 200) {
                 $body = json_decode($response->getBody()->getContents(), true);
                 $recordId = $body['record']['id'] ?? null;
-                
-                $sql = "SELECT id FROM service_dns WHERE domain_name = :domainName LIMIT 1";
-                $stmt = $this->pdo->prepare($sql);
-                $stmt->bindParam(':domainName', $domainName, PDO::PARAM_STR);
-                $stmt->execute();
 
-                if ($stmt->rowCount() > 0) {
-                    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-                    $domainId = $row['id'];
-                } else {
-                    throw new \Exception("Domain name does not exist.");
-                }
-            
-                $sql = "UPDATE service_dns_records SET recordId = :recordId WHERE type = :type AND host = :subname AND value = :value AND domain_id = :domain_id";
-                $stmt = $this->pdo->prepare($sql);
-                $stmt->bindParam(':recordId', $recordId, PDO::PARAM_STR);
-                $stmt->bindParam(':type', $rrsetData['type'], PDO::PARAM_STR);
-                $stmt->bindParam(':subname', $rrsetData['subname'], PDO::PARAM_STR);
-                $stmt->bindParam(':value', $rrsetData['records'][0], PDO::PARAM_STR);
-                $stmt->bindParam(':domain_id', $domainId, PDO::PARAM_INT);
-                $stmt->execute();
-
-                if ($stmt->rowCount() === 0) {
-                    throw new \Exception("No DB update made. Check if the domain name exists.");
-                }
+                saveRecordId($this->pdo, $domainName, $recordId, $rrsetData);
 
                 return true;
             } else {
@@ -214,32 +155,9 @@ class Hetzner implements DnsHostingProviderInterface {
         }
             
         try {
-            $sql = "SELECT id, zoneId FROM service_dns WHERE domain_name = :domainName LIMIT 1";
-            $stmt = $this->pdo->prepare($sql);
-            $stmt->bindParam(':domainName', $domainName, PDO::PARAM_STR);
-            $stmt->execute();
-
-            if ($stmt->rowCount() > 0) {
-                $row = $stmt->fetch(PDO::FETCH_ASSOC);
-                $zoneId = $row['zoneId'];
-                $domainId = $row['id'];
-            } else {
-                throw new \Exception("Domain name does not exist.");
-            }
-
-            $sql = "SELECT recordId FROM service_dns_records WHERE type = :type AND host = :subname AND domain_id = :domain_id LIMIT 1";
-            $stmt = $this->pdo->prepare($sql);
-            $stmt->bindParam(':type', $type, PDO::PARAM_STR);
-            $stmt->bindParam(':subname', $subname, PDO::PARAM_STR);
-            $stmt->bindParam(':domain_id', $domainId, PDO::PARAM_INT);
-            $stmt->execute();
-
-            if ($stmt->rowCount() > 0) {
-                $row = $stmt->fetch(PDO::FETCH_ASSOC);
-                $recordId = $row['recordId'];
-            } else {
-                throw new \Exception("Record not found for the given type and subname.");
-            }
+            $result = getZoneId($this->pdo, $domainName);
+            $zoneId = $result['zoneId'];
+            $recordId = getRecordId($this->pdo, $domainName, $type, $subname);
 
             $response = $this->client->request('PUT', "records/{$recordId}", [
                 'headers' => $this->headers,
@@ -270,32 +188,7 @@ class Hetzner implements DnsHostingProviderInterface {
 
     public function deleteRRset($domainName, $subname, $type, $value) {
         try {
-            $sql = "SELECT id, zoneId FROM service_dns WHERE domain_name = :domainName LIMIT 1";
-            $stmt = $this->pdo->prepare($sql);
-            $stmt->bindParam(':domainName', $domainName, PDO::PARAM_STR);
-            $stmt->execute();
-
-            if ($stmt->rowCount() > 0) {
-                $row = $stmt->fetch(PDO::FETCH_ASSOC);
-                $zoneId = $row['zoneId'];
-                $domainId = $row['id'];
-            } else {
-                throw new \Exception("Domain name does not exist.");
-            }
-
-            $sql = "SELECT recordId FROM service_dns_records WHERE type = :type AND host = :subname AND domain_id = :domain_id LIMIT 1";
-            $stmt = $this->pdo->prepare($sql);
-            $stmt->bindParam(':type', $type, PDO::PARAM_STR);
-            $stmt->bindParam(':subname', $subname, PDO::PARAM_STR);
-            $stmt->bindParam(':domain_id', $domainId, PDO::PARAM_INT);
-            $stmt->execute();
-
-            if ($stmt->rowCount() > 0) {
-                $row = $stmt->fetch(PDO::FETCH_ASSOC);
-                $recordId = $row['recordId'];
-            } else {
-                throw new \Exception("Record not found for the given type and subname.");
-            }
+            $recordId = getRecordId($this->pdo, $domainName, $type, $subname);
 
             $response = $this->client->request('DELETE', "records/{$recordId}", [
                 'headers' => $this->headers,
