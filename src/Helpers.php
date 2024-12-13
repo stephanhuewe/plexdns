@@ -1,7 +1,5 @@
 <?php
 
-use PDO;
-
 /**
  * Updates the recordId for a specific DNS record in the database.
  *
