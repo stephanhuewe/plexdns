@@ -13,7 +13,7 @@
 function saveRecordId(PDO $pdo, string $domainName, string $recordId, array $rrsetData): int
 {
     // Step 1: Fetch the domain ID
-    $sqlDomain = "SELECT id FROM service_dns WHERE domain_name = :domainName LIMIT 1";
+    $sqlDomain = "SELECT id FROM zones WHERE domain_name = :domainName LIMIT 1";
     $stmtDomain = $pdo->prepare($sqlDomain);
     $stmtDomain->bindParam(':domainName', $domainName, PDO::PARAM_STR);
     $stmtDomain->execute();
@@ -28,7 +28,7 @@ function saveRecordId(PDO $pdo, string $domainName, string $recordId, array $rrs
 
     // Step 2: Update the recordId
     $sqlUpdate = "
-        UPDATE service_dns_records 
+        UPDATE records 
         SET recordId = :recordId 
         WHERE type = :type AND host = :subname AND value = :value AND domain_id = :domain_id
     ";
@@ -62,7 +62,7 @@ function saveRecordId(PDO $pdo, string $domainName, string $recordId, array $rrs
 function getRecordId(PDO $pdo, string $domainName, string $type, string $subname): string
 {
     // Step 1: Fetch the domain ID
-    $sqlDomain = "SELECT id FROM service_dns WHERE domain_name = :domainName LIMIT 1";
+    $sqlDomain = "SELECT id FROM zones WHERE domain_name = :domainName LIMIT 1";
     $stmtDomain = $pdo->prepare($sqlDomain);
     $stmtDomain->execute([':domainName' => $domainName]);
 
@@ -77,7 +77,7 @@ function getRecordId(PDO $pdo, string $domainName, string $type, string $subname
     // Step 2: Fetch the record ID
     $sqlRecord = "
         SELECT recordId 
-        FROM service_dns_records 
+        FROM records 
         WHERE type = :type AND host = :subname AND domain_id = :domain_id 
         LIMIT 1
     ";
@@ -108,7 +108,7 @@ function getRecordId(PDO $pdo, string $domainName, string $type, string $subname
  */
 function saveZoneId(PDO $pdo, string $domainName, string $zoneId): int
 {
-    $sql = "UPDATE service_dns SET zoneId = :zoneId WHERE domain_name = :domainName";
+    $sql = "UPDATE zones SET zoneId = :zoneId WHERE domain_name = :domainName";
     $stmt = $pdo->prepare($sql);
     $stmt->bindParam(':zoneId', $zoneId, PDO::PARAM_STR);
     $stmt->bindParam(':domainName', $domainName, PDO::PARAM_STR);
@@ -132,7 +132,7 @@ function saveZoneId(PDO $pdo, string $domainName, string $zoneId): int
  */
 function getZoneId(PDO $pdo, string $domainName): array
 {
-    $sql = "SELECT id, zoneId FROM service_dns WHERE domain_name = :domainName LIMIT 1";
+    $sql = "SELECT id, zoneId FROM zones WHERE domain_name = :domainName LIMIT 1";
     $stmt = $pdo->prepare($sql);
     $stmt->bindParam(':domainName', $domainName, PDO::PARAM_STR);
     $stmt->execute();

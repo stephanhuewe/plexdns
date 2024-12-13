@@ -115,7 +115,7 @@ class Service
         $now = date('Y-m-d H:i:s');
 
         $query = "
-            INSERT INTO service_dns (client_id, config, domain_name, created_at, updated_at)
+            INSERT INTO zones (client_id, config, domain_name, created_at, updated_at)
             VALUES (:client_id, :config, :domain_name, :created_at, :updated_at)
             ON DUPLICATE KEY UPDATE
                 config = VALUES(config),
@@ -173,7 +173,7 @@ class Service
         }
 
         // Step 2: Delete domain from database
-        $query = "DELETE FROM service_dns WHERE domain_name = :domain_name";
+        $query = "DELETE FROM zones WHERE domain_name = :domain_name";
         $params = [':domain_name' => $domainName];
 
         try {
@@ -198,7 +198,7 @@ class Service
         }
 
         $domainName = $data['domain_name'];
-        $query = "SELECT * FROM service_dns WHERE domain_name = :domain_name";
+        $query = "SELECT * FROM zones WHERE domain_name = :domain_name";
         $domain = $this->fetchData($query, [':domain_name' => $domainName]);
 
         if (!$domain) {
@@ -239,7 +239,7 @@ class Service
 
         // Step 5: Add record to the database
         $insertQuery = "
-            INSERT INTO service_dns_records (domain_id, type, host, value, ttl, priority, created_at, updated_at)
+            INSERT INTO records (domain_id, type, host, value, ttl, priority, created_at, updated_at)
             VALUES (:domain_id, :type, :host, :value, :ttl, :priority, :created_at, :updated_at)
         ";
         $params = [
@@ -280,7 +280,7 @@ class Service
         $recordId = $data['record_id'];
 
         // Step 1: Fetch the domain configuration
-        $query = "SELECT * FROM service_dns WHERE domain_name = :domain_name";
+        $query = "SELECT * FROM zones WHERE domain_name = :domain_name";
         $domain = $this->fetchData($query, [':domain_name' => $domainName]);
 
         if (!$domain) {
@@ -318,7 +318,7 @@ class Service
 
         // Step 5: Update the record in the database
         $updateQuery = "
-            UPDATE service_dns_records
+            UPDATE records
             SET ttl = :ttl, value = :value, updated_at = :updated_at
             WHERE id = :record_id AND domain_id = :domain_id
         ";
@@ -357,7 +357,7 @@ class Service
         $recordId = $data['record_id'];
 
         // Step 1: Fetch the domain configuration
-        $query = "SELECT * FROM service_dns WHERE domain_name = :domain_name";
+        $query = "SELECT * FROM zones WHERE domain_name = :domain_name";
         $domain = $this->fetchData($query, [':domain_name' => $domainName]);
 
         if (!$domain) {
@@ -381,7 +381,7 @@ class Service
 
         // Step 4: Delete the record from the database
         $deleteQuery = "
-            DELETE FROM service_dns_records
+            DELETE FROM records
             WHERE id = :record_id AND domain_id = :domain_id
         ";
         $deleteParams = [
@@ -406,8 +406,8 @@ class Service
      */
     public function install(): bool
     {
-        $sqlServiceDns = '
-            CREATE TABLE IF NOT EXISTS `service_dns` (
+        $sqlZones = '
+            CREATE TABLE IF NOT EXISTS `zones` (
                 `id` BIGINT(20) NOT NULL AUTO_INCREMENT UNIQUE,
                 `client_id` BIGINT(20) NOT NULL,
                 `domain_name` VARCHAR(75),
@@ -420,8 +420,8 @@ class Service
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8 AUTO_INCREMENT=1;
         ';
 
-        $sqlServiceDnsRecords = '
-            CREATE TABLE IF NOT EXISTS `service_dns_records` (
+        $sqlRecords = '
+            CREATE TABLE IF NOT EXISTS `records` (
                 `id` BIGINT(20) NOT NULL AUTO_INCREMENT,
                 `domain_id` BIGINT(20) NOT NULL,
                 `recordId` VARCHAR(100) DEFAULT NULL,
@@ -433,13 +433,13 @@ class Service
                 `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
                 `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 PRIMARY KEY (`id`),
-                FOREIGN KEY (`domain_id`) REFERENCES `service_dns`(`id`) ON DELETE CASCADE
+                FOREIGN KEY (`domain_id`) REFERENCES `zones`(`id`) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8 AUTO_INCREMENT=1;
         ';
 
         try {
-            $this->db->exec($sqlServiceDns);
-            $this->db->exec($sqlServiceDnsRecords);
+            $this->db->exec($sqlZones);
+            $this->db->exec($sqlRecords);
         } catch (Exception $e) {
             throw new Exception("Failed to install database structure: " . $e->getMessage());
         }
@@ -455,12 +455,12 @@ class Service
      */
     public function uninstall(): bool
     {
-        $sqlDropServiceDnsRecords = 'DROP TABLE IF EXISTS `service_dns_records`';
-        $sqlDropServiceDns = 'DROP TABLE IF EXISTS `service_dns`';
+        $sqlRecords = 'DROP TABLE IF EXISTS `records`';
+        $sqlZones = 'DROP TABLE IF EXISTS `zones`';
 
         try {
-            $this->db->exec($sqlDropServiceDnsRecords);
-            $this->db->exec($sqlDropServiceDns);
+            $this->db->exec($sqlRecords);
+            $this->db->exec($sqlZones);
         } catch (Exception $e) {
             throw new Exception("Failed to uninstall database structure: " . $e->getMessage());
         }
@@ -476,38 +476,15 @@ class Service
      */
     public function onCronRun(): void
     {
-        // Step 1: Check if the servicedns module is activated
-        $sqlCheck = 'SELECT COUNT(*) FROM extension WHERE name = :name AND status = :status';
-        $paramsCheck = [
-            ':name' => 'servicedns',
-            ':status' => 'installed',
-        ];
-
-        $isActivated = (bool) $this->fetchData($sqlCheck, $paramsCheck)[0]['COUNT(*)'];
-        if (!$isActivated) {
-            throw new \Exception("The 'servicedns' module is not activated.");
-        }
-
-        // Step 2: Fetch the DNS provider configuration
-        $sqlFetchProduct = 'SELECT config FROM product WHERE title = :title LIMIT 1';
-        $paramsFetchProduct = [
-            ':title' => 'DNS hosting',
-        ];
-
-        $productRow = $this->fetchData($sqlFetchProduct, $paramsFetchProduct);
-        if (!$productRow) {
-            throw new \Exception("Product with title 'DNS hosting' not found.");
-        }
-
-        $configArray = json_decode($productRow[0]['config'], true);
+        $configArray = null;
         $this->chooseDnsProvider($configArray);
 
         if ($this->dnsProvider === null) {
             throw new \Exception("DNS provider is not set.");
         }
 
-        // Step 3: Fetch all domains from the database
-        $sqlFetchDomains = 'SELECT * FROM service_dns';
+        // Step 1: Fetch all domains from the database
+        $sqlFetchDomains = 'SELECT * FROM zones';
         $domains = $this->fetchData($sqlFetchDomains);
 
         foreach ($domains as $domain) {
@@ -515,16 +492,16 @@ class Service
             $dbConfig = json_decode($domain['config'], true);
 
             try {
-                // Step 4: Fetch domain configuration from the provider
-                $providerConfig = $this->dnsProvider->getDomain($domainName); // Assuming getDomain returns JSON
+                // Step 2: Fetch domain configuration from the provider
+                $providerConfig = $this->dnsProvider->getDomain($domainName);
                 $providerConfigArray = json_decode($providerConfig, true);
 
-                // Step 5: Compare configurations and update the database if needed
+                // Step 3: Compare configurations and update the database if needed
                 if ($providerConfigArray !== $dbConfig) {
                     echo "Updating configuration for domain '{$domainName}'...\n";
 
                     $updateQuery = "
-                        UPDATE service_dns
+                        UPDATE zones
                         SET config = :config, updated_at = :updated_at
                         WHERE id = :id
                     ";
