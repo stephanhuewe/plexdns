@@ -1,6 +1,6 @@
 <?php
 
-namespace DNS\Providers;
+namespace PlexDNS\Providers;
 
 use Exonet\Powerdns\Powerdns as PowerdnsApi;
 use Exonet\Powerdns\RecordType;

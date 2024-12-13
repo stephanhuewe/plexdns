@@ -1,6 +1,6 @@
 <?php
 
-namespace DNS\Providers;
+namespace PlexDNS\Providers;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;

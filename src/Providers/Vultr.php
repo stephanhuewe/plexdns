@@ -1,6 +1,6 @@
 <?php
 
-namespace DNS\Providers;
+namespace PlexDNS\Providers;
 
 use Vultr\VultrPhp\Services\DNS\DNSService;
 use Vultr\VultrPhp\Services\DNS\Domain;

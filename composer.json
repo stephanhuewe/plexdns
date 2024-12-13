@@ -23,7 +23,7 @@
     },
     "autoload": {
         "psr-4": {
-            "DNS\\": "src/"
+            "PlexDNS\\": "src/"
         },
         "files": [
             "src/Helpers.php"

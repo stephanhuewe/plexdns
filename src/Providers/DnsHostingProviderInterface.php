@@ -1,6 +1,6 @@
 <?php
 
-namespace DNS\Providers;
+namespace PlexDNS\Providers;
 
 interface DnsHostingProviderInterface {
     public function createDomain($domain);

@@ -1,6 +1,6 @@
 <?php
 
-namespace DNS;
+namespace PlexDNS;
 
 use PDO;
 use Exception;

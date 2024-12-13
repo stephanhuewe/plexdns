@@ -1,6 +1,6 @@
 <?php
 
-use DNS\Service;
+use PlexDNS\Service;
 
 require_once 'vendor/autoload.php';
 

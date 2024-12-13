@@ -1,6 +1,6 @@
 <?php
 
-namespace DNS\Providers;
+namespace PlexDNS\Providers;
 
 use Namingo\Bind9Api\ApiClient;
 use Spatie\Dns\Dns;
