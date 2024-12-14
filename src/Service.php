@@ -192,9 +192,9 @@ class Service
      */
     public function addRecord(array $data): bool
     {
-        // Step 1: Validate input and fetch domain details
-        if (empty($data['domain_name'])) {
-            throw new Exception("Domain name is missing.");
+        // Validate data configuration
+        if (!$data || !isset($data['domain_name'])) {
+            throw new Exception("Invalid configuration: domain name missing.");
         }
 
         $domainName = $data['domain_name'];
@@ -205,10 +205,7 @@ class Service
             throw new Exception("Domain does not exist.");
         }
 
-        // Step 2: Set up the DNS provider
-        $config = json_decode($domain[0]['config'], true);
-        $this->chooseDnsProvider($config);
-
+        $this->chooseDnsProvider($data);
         if ($this->dnsProvider === null) {
             throw new Exception("DNS provider is not set.");
         }
@@ -223,7 +220,7 @@ class Service
 
         // Special handling for MX records
         if ($data['record_type'] === 'MX') {
-            if ($config['provider'] === 'Desec') {
+            if ($data['provider'] === 'Desec') {
                 $rrsetData['records'] = [$data['record_priority'] . ' ' . $data['record_value']];
             } else {
                 $rrsetData['priority'] = $data['record_priority'];
@@ -287,10 +284,8 @@ class Service
             throw new Exception("Domain does not exist.");
         }
 
-        $config = json_decode($domain[0]['config'], true);
-
         // Step 2: Set up the DNS provider
-        $this->chooseDnsProvider($config);
+        $this->chooseDnsProvider($data);
         if ($this->dnsProvider === null) {
             throw new Exception("DNS provider is not set.");
         }
@@ -302,7 +297,7 @@ class Service
         ];
 
         if ($data['record_type'] === 'MX') {
-            if ($config['provider'] === 'Desec') {
+            if ($data['provider'] === 'Desec') {
                 $rrsetData['records'] = [$data['record_priority'] . ' ' . $data['record_value']];
             } else {
                 $rrsetData['priority'] = $data['record_priority'];
@@ -364,10 +359,8 @@ class Service
             throw new Exception("Domain does not exist.");
         }
 
-        $config = json_decode($domain[0]['config'], true);
-
         // Step 2: Set up the DNS provider
-        $this->chooseDnsProvider($config);
+        $this->chooseDnsProvider($data);
         if ($this->dnsProvider === null) {
             throw new Exception("DNS provider is not set.");
         }

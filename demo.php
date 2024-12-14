@@ -40,6 +40,8 @@ try {
         'record_type' => 'A',
         'record_value' => '192.168.1.1',
         'record_ttl' => 3600,
+        'provider' => 'Desec',
+        'apikey' => 'XXX'
     ];
     $recordId = $service->addRecord($recordData);
     echo "DNS record added successfully.\n";
@@ -53,6 +55,8 @@ try {
         'record_type' => 'A',
         'record_value' => '192.168.1.2',
         'record_ttl' => 7200,
+        'provider' => 'Desec',
+        'apikey' => 'XXX'
     ];
     $service->updateRecord($updateData);
     echo "DNS record updated successfully.\n";
