@@ -13,7 +13,7 @@ class PowerDNS implements DnsHostingProviderInterface {
 
     public function __construct($config) {
         $token = $config['apikey'];
-        $api_ip = $config['powerdnsapi'];
+        $api_ip = $config['powerdnsip'];
         if (empty($token)) {
             throw new \Exception("API token cannot be empty");
         }

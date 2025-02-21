@@ -1,0 +1,15 @@
+PROVIDER=Desec         # AnycastDNS, Bind, ClouDNS, Desec, DNSimple, Hetzner, PowerDNS, Vultr
+API_KEY=your-api-key   # General API Key
+
+BIND_IP=127.0.0.1      # IP address of your BIND9 server
+POWERDNS_IP=127.0.0.1  # IP address of your PowerDNS server
+
+AUTH_ID=your-cloudns-auth-id         # ClouDNS authentication ID
+AUTH_PASSWORD=your-cloudns-password  # ClouDNS authentication password
+
+DB_TYPE=mysql          # mysql, pgsql, or sqlite
+DB_HOST=127.0.0.1      # Hostname (Not needed for SQLite)
+DB_NAME=dbname         # Database name (Not needed for SQLite)
+DB_USER=user           # Database username (Not needed for SQLite)
+DB_PASS=pass           # Database password (Not needed for SQLite)
+SQLITE_PATH=database.sqlite  # Relative path for SQLite

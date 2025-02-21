@@ -114,13 +114,34 @@ class Service
         // Step 2: Save domain in the database
         $now = date('Y-m-d H:i:s');
 
-        $query = "
-            INSERT INTO zones (client_id, config, domain_name, created_at, updated_at)
-            VALUES (:client_id, :config, :domain_name, :created_at, :updated_at)
-            ON DUPLICATE KEY UPDATE
-                config = VALUES(config),
-                updated_at = VALUES(updated_at)
-        ";
+        $dbDriver = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+
+        if ($dbDriver === 'mysql') {
+            $query = "
+                INSERT INTO zones (client_id, config, domain_name, created_at, updated_at)
+                VALUES (:client_id, :config, :domain_name, :created_at, :updated_at)
+                ON DUPLICATE KEY UPDATE
+                    config = VALUES(config),
+                    updated_at = VALUES(updated_at)
+            ";
+        } elseif ($dbDriver === 'pgsql') {
+            $query = "
+                INSERT INTO zones (client_id, config, domain_name, created_at, updated_at)
+                VALUES (:client_id, :config, :domain_name, :created_at, :updated_at)
+                ON CONFLICT (domain_name) DO UPDATE 
+                SET config = EXCLUDED.config, updated_at = EXCLUDED.updated_at
+            ";
+        } elseif ($dbDriver === 'sqlite') {
+            $query = "
+                INSERT INTO zones (client_id, config, domain_name, created_at, updated_at)
+                VALUES (:client_id, :config, :domain_name, :created_at, :updated_at)
+                ON CONFLICT(domain_name) DO UPDATE SET
+                    config = excluded.config,
+                    updated_at = excluded.updated_at
+            ";
+        } else {
+            throw new Exception("Unsupported database type: $dbDriver");
+        }
 
         $params = [
             ':client_id' => $clientId,
@@ -399,36 +420,104 @@ class Service
      */
     public function install(): bool
     {
-        $sqlZones = '
-            CREATE TABLE IF NOT EXISTS `zones` (
-                `id` BIGINT(20) NOT NULL AUTO_INCREMENT UNIQUE,
-                `client_id` BIGINT(20) NOT NULL,
-                `domain_name` VARCHAR(75),
-                `provider_id` VARCHAR(11),
-                `zoneId` VARCHAR(100) DEFAULT NULL,
-                `config` TEXT NOT NULL,
-                `created_at` DATETIME,
-                `updated_at` DATETIME,
-                PRIMARY KEY (`id`)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8 AUTO_INCREMENT=1;
-        ';
+        // Detect database type
+        $dbDriver = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
 
-        $sqlRecords = '
-            CREATE TABLE IF NOT EXISTS `records` (
-                `id` BIGINT(20) NOT NULL AUTO_INCREMENT,
-                `domain_id` BIGINT(20) NOT NULL,
-                `recordId` VARCHAR(100) DEFAULT NULL,
-                `type` VARCHAR(10) NOT NULL,
-                `host` VARCHAR(255) NOT NULL,
-                `value` TEXT NOT NULL,
-                `ttl` INT(11) DEFAULT NULL,
-                `priority` INT(11) DEFAULT NULL,
-                `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-                `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                PRIMARY KEY (`id`),
-                FOREIGN KEY (`domain_id`) REFERENCES `zones`(`id`) ON DELETE CASCADE
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8 AUTO_INCREMENT=1;
-        ';
+        if ($dbDriver === 'mysql') {
+            $sqlZones = '
+                CREATE TABLE IF NOT EXISTS `zones` (
+                    `id` BIGINT(20) NOT NULL AUTO_INCREMENT,
+                    `client_id` BIGINT(20) NOT NULL,
+                    `domain_name` VARCHAR(75),
+                    `provider_id` VARCHAR(11),
+                    `zoneId` VARCHAR(100) DEFAULT NULL,
+                    `config` TEXT NOT NULL,
+                    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+            ';
+
+            $sqlRecords = '
+                CREATE TABLE IF NOT EXISTS `records` (
+                    `id` BIGINT(20) NOT NULL AUTO_INCREMENT,
+                    `domain_id` BIGINT(20) NOT NULL,
+                    `recordId` VARCHAR(100) DEFAULT NULL,
+                    `type` VARCHAR(10) NOT NULL,
+                    `host` VARCHAR(255) NOT NULL,
+                    `value` TEXT NOT NULL,
+                    `ttl` INT(11) DEFAULT NULL,
+                    `priority` INT(11) DEFAULT NULL,
+                    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`id`),
+                    FOREIGN KEY (`domain_id`) REFERENCES `zones`(`id`) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+            ';
+        } elseif ($dbDriver === 'pgsql') {
+            $sqlZones = '
+                CREATE TABLE IF NOT EXISTS zones (
+                    id BIGSERIAL PRIMARY KEY,
+                    client_id BIGINT NOT NULL,
+                    domain_name VARCHAR(75),
+                    provider_id VARCHAR(11),
+                    zoneId VARCHAR(100) DEFAULT NULL,
+                    config TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            ';
+
+            $sqlRecords = '
+                CREATE TABLE IF NOT EXISTS records (
+                    id BIGSERIAL PRIMARY KEY,
+                    domain_id BIGINT NOT NULL,
+                    recordId VARCHAR(100) DEFAULT NULL,
+                    type VARCHAR(10) NOT NULL,
+                    host VARCHAR(255) NOT NULL,
+                    value TEXT NOT NULL,
+                    ttl INTEGER DEFAULT NULL,
+                    priority INTEGER DEFAULT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (domain_id) REFERENCES zones(id) ON DELETE CASCADE
+                );
+            ';
+        } elseif ($dbDriver === 'sqlite') {
+            $sqlZones = '
+                CREATE TABLE IF NOT EXISTS zones (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    client_id INTEGER NOT NULL,
+                    domain_name TEXT UNIQUE NOT NULL,
+                    provider_id TEXT,
+                    zoneId TEXT DEFAULT NULL,
+                    config TEXT NOT NULL,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+                );
+            ';
+
+            $sqlRecords = '
+                CREATE TABLE IF NOT EXISTS records (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    domain_id INTEGER NOT NULL,
+                    recordId TEXT DEFAULT NULL,
+                    type TEXT NOT NULL,
+                    host TEXT NOT NULL,
+                    value TEXT NOT NULL,
+                    ttl INTEGER DEFAULT NULL,
+                    priority INTEGER DEFAULT NULL,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (domain_id) REFERENCES zones(id) ON DELETE CASCADE
+                );
+            ';
+
+            // Enable foreign keys for SQLite
+            $this->db->exec("PRAGMA foreign_keys = ON;");
+        } else {
+            throw new Exception("Unsupported database driver: " . $dbDriver);
+        }
 
         try {
             $this->db->exec($sqlZones);

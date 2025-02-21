@@ -11,7 +11,7 @@ class Bind implements DnsHostingProviderInterface {
 
     public function __construct($config) {
         $token = $config['apikey'];
-        $api_ip = $config['powerdnsapi'];
+        $api_ip = $config['bindip'];
         if (empty($token)) {
             throw new \Exception("API token cannot be empty");
         }

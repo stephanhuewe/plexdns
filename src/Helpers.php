@@ -1,5 +1,43 @@
 <?php
 
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
+use Monolog\Handler\RotatingFileHandler;
+use Monolog\Formatter\LineFormatter;
+
+/**
+ * Sets up and returns a Logger instance.
+ * 
+ * @param string $logFilePath Full path to the log file.
+ * @param string $channelName Name of the log channel (optional).
+ * @return Logger
+ */
+function setupLogger($logFilePath, $channelName = 'app') {
+    $log = new Logger($channelName);
+    
+    // Console handler (for real-time debugging)
+    $consoleHandler = new StreamHandler('php://stdout', Logger::DEBUG);
+    $consoleFormatter = new LineFormatter(
+        "[%datetime%] %channel%.%level_name%: %message% %context% %extra%\n",
+        "Y-m-d H:i:s.u",
+        true,
+        true
+    );
+    $consoleHandler->setFormatter($consoleFormatter);
+    $log->pushHandler($consoleHandler);
+
+    // File handler - Rotates daily, keeps logs for 14 days
+    $fileHandler = new RotatingFileHandler($logFilePath, 14, Logger::DEBUG);
+    $fileFormatter = new LineFormatter(
+        "[%datetime%] %channel%.%level_name%: %message% %context% %extra%\n",
+        "Y-m-d H:i:s.u"
+    );
+    $fileHandler->setFormatter($fileFormatter);
+    $log->pushHandler($fileHandler);
+
+    return $log;
+}
+
 /**
  * Updates the recordId for a specific DNS record in the database.
  *
