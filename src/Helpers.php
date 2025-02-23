@@ -12,7 +12,7 @@ use Monolog\Formatter\LineFormatter;
  * @param string $channelName Name of the log channel (optional).
  * @return Logger
  */
-function setupLogger($logFilePath, $channelName = 'app') {
+function setupPlexLogger($logFilePath, $channelName = 'app') {
     $log = new Logger($channelName);
     
     // Console handler (for real-time debugging)

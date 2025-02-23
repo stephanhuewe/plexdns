@@ -43,7 +43,7 @@ if ($dbType !== 'sqlite' && (!$dbName || !$username || !$password)) {
 }
 
 $logFilePath = '/var/log/plexdns/plexdns.log';
-$log = setupLogger($logFilePath, 'PlexDNS');
+$log = setupPlexLogger($logFilePath, 'PlexDNS');
 $log->info('job started.');
 
 try {
