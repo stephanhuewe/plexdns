@@ -435,7 +435,7 @@ class Service
                     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
                     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                     PRIMARY KEY (`id`)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
             ';
 
             $sqlRecords = '
@@ -452,7 +452,7 @@ class Service
                     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                     PRIMARY KEY (`id`),
                     FOREIGN KEY (`domain_id`) REFERENCES `zones`(`id`) ON DELETE CASCADE
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
             ';
         } elseif ($dbDriver === 'pgsql') {
             $sqlZones = '
