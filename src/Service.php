@@ -296,7 +296,7 @@ class Service
     public function updateRecord(array $data): bool
     {
         // Validate the input
-        if (empty($data['domain_name']) || !array_key_exists('record_id', $data)) {
+        if (empty($data['domain_name']) || empty($data['record_id'])) {
             throw new Exception("Domain name or record ID is missing.");
         }
 
@@ -371,7 +371,7 @@ class Service
     public function delRecord(array $data): bool
     {
         // Validate the input
-        if (empty($data['domain_name']) || !array_key_exists('record_id', $data)) {
+        if (empty($data['domain_name']) || empty($data['record_id'])) {
             throw new Exception("Domain name or record ID is missing.");
         }
 
