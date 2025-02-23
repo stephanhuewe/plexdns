@@ -91,6 +91,7 @@ try {
         'record_type' => 'A',
         'record_value' => '192.168.1.1',
         'record_ttl' => 3600,
+        'record_priority' => 10, // Optional
         'provider' => $provider,
         'apikey' => $apiKey
     ];
