@@ -31,8 +31,14 @@ class Service
         $providerName = $config['provider'];
 
         switch ($providerName) {
+            case 'AnycastDNS':
+                $this->dnsProvider = new Providers\AnycastDNS($config);
+                break;
             case 'Bind':
                 $this->dnsProvider = new Providers\Bind($config);
+                break;
+            case 'ClouDNS':
+                $this->dnsProvider = new Providers\ClouDNS($config);
                 break;
             case 'Desec':
                 $this->dnsProvider = new Providers\Desec($config);
