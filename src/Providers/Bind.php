@@ -25,16 +25,7 @@ class Bind implements DnsHostingProviderInterface {
         if (empty($username) || empty($password)) {
             throw new \Exception("API token must be in the format 'username:password'");
         }
-        
-        // Dynamically pull nameserver settings from the configuration
-        $this->nsRecords = [
-            'ns1' => $config['ns1'] ?? null,
-            'ns2' => $config['ns2'] ?? null,
-            'ns3' => $config['ns3'] ?? null,
-            'ns4' => $config['ns4'] ?? null,
-            'ns5' => $config['ns5'] ?? null,
-        ];
-        
+
         $this->api_ip = $api_ip;
 
         $this->client = new ApiClient('http://'.$api_ip.':7650');
