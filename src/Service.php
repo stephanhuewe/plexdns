@@ -89,6 +89,13 @@ class Service
         return $stmt->execute($params);
     }
 
+    public function fetchQuery(string $query, array $params = []): array
+    {
+        $stmt = $this->db->prepare($query);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     public function createDomain(array $order): array
     {
         // Extract domain configuration
@@ -200,13 +207,32 @@ class Service
         }
 
         // Step 2: Delete domain from database
-        $query = "DELETE FROM zones WHERE domain_name = :domain_name";
+        $query = "SELECT id FROM zones WHERE domain_name = :domain_name";
         $params = [':domain_name' => $domainName];
 
         try {
+            $this->db->beginTransaction(); 
+
+            $result = $this->fetchQuery($query, $params);
+            $domainId = $result[0]['id'] ?? null;
+
+            if (!$domainId) {
+                throw new Exception("Domain $domainName not found in the database.");
+            }
+
+            $query = "DELETE FROM records WHERE domain_id = :domain_id";
+            $params = [':domain_id' => $domainId];
             $this->executeQuery($query, $params);
+
+            $query = "DELETE FROM zones WHERE id = :domain_id";
+            $params = [':domain_id' => $domainId];
+            $this->executeQuery($query, $params);
+
+            $this->db->commit(); 
+
         } catch (Exception $e) {
-            throw new Exception("Failed to delete domain $domainName from the database: " . $e->getMessage());
+            $this->db->rollback();
+            throw new Exception("Failed to delete domain $domainName and its records: " . $e->getMessage());
         }
     }
 
@@ -354,6 +380,18 @@ class Service
 
         try {
             $this->executeQuery($updateQuery, $updateParams);
+            
+            $zoneUpdateQuery = "
+                UPDATE zones
+                SET updated_at = :updated_at
+                WHERE id = :domain_id
+            ";
+            $zoneUpdateParams = [
+                ':updated_at' => date('Y-m-d H:i:s'),
+                ':domain_id' => $domain[0]['id'],
+            ];
+
+            $this->executeQuery($zoneUpdateQuery, $zoneUpdateParams);
         } catch (Exception $e) {
             throw new Exception("Failed to update DNS record in the database: " . $e->getMessage());
         }
@@ -411,6 +449,18 @@ class Service
 
         try {
             $this->executeQuery($deleteQuery, $deleteParams);
+            
+            $zoneUpdateQuery = "
+                UPDATE zones
+                SET updated_at = :updated_at
+                WHERE id = :domain_id
+            ";
+            $zoneUpdateParams = [
+                ':updated_at' => date('Y-m-d H:i:s'),
+                ':domain_id' => $domain[0]['id'],
+            ];
+
+            $this->executeQuery($zoneUpdateQuery, $zoneUpdateParams);
         } catch (Exception $e) {
             throw new Exception("Failed to delete DNS record from the database: " . $e->getMessage());
         }

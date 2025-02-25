@@ -64,6 +64,13 @@ Most DNS providers **require an API key**, while some may need **additional sett
 
 ---
 
+## Acknowledgements
+
+We extend our gratitude to:
+- [QCloudns API Client](https://github.com/sussdorf/qcloudns) which served as inspiration for our ClouDNS module.
+
+---
+
 ## 📄 License
 PlexDNS is licensed under the **MIT License**.
 

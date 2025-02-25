@@ -16,7 +16,6 @@
         "dnsimple/dnsimple": "^1.4",
         "namingo/bind9-api-client": "^1.0.2",
         "spatie/dns": "^2.6",
-        "qcloudns/client": "^1.0",
         "monolog/monolog": "^3.8",
         "vlucas/phpdotenv": "^5.6"
     },
