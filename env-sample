@@ -1,5 +1,3 @@
-PROVIDER=Desec         # AnycastDNS, Bind, Cloudflare, ClouDNS, Desec, DNSimple, Hetzner, PowerDNS, Vultr
-
 DB_TYPE=mysql          # mysql, pgsql, or sqlite
 DB_HOST=127.0.0.1      # Hostname (Not needed for SQLite)
 DB_NAME=dbname         # Database name (Not needed for SQLite)
