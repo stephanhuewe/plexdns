@@ -5,29 +5,90 @@ use PlexDNS\Service;
 
 require_once 'vendor/autoload.php';
 
+function getProviderCredentials(string $provider): ?array {
+    // Convert provider name to uppercase (matches env variables)
+    $providerKey = strtoupper(str_replace(' ', '_', $provider));
+
+    // Get all environment variables
+    $envVars = $_ENV;
+
+    // Find all keys related to this provider (keys start with "DNS_{PROVIDER}_")
+    $credentials = [];
+    foreach ($envVars as $key => $value) {
+        if (strpos($key, "DNS_{$providerKey}_") === 0 && !empty($value)) {
+            // Extract the field name after "DNS_{PROVIDER}_"
+            $field = str_replace("DNS_{$providerKey}_", '', $key);
+            $credentials[$field] = $value;
+        }
+    }
+
+    // Return credentials only if they have values, otherwise return null
+    return !empty($credentials) ? $credentials : null;
+}
+
+function getActiveProviders(): array {
+    $activeProviders = [];
+    
+    foreach ($_ENV as $key => $value) {
+        if (strpos($key, 'DNS_') === 0 && !empty($value)) {
+            // Extract provider name (between "DNS_" and "_FIELDNAME")
+            preg_match('/DNS_([^_]+)_/', $key, $matches);
+            if (!empty($matches[1])) {
+                $providerName = $matches[1];
+                
+                // Add provider only if it hasn't been added already
+                if (!isset($activeProviders[$providerName])) {
+                    $activeProviders[$providerName] = str_replace('_', ' ', ucfirst(strtolower($providerName)));
+                }
+            }
+        }
+    }
+
+    return $activeProviders;
+}
+
+function getProviderDisplayName(string $provider): string {
+    $providerNames = [
+        'ANYCASTDNS'  => 'AnycastDNS',
+        'BIND9'       => 'Bind',
+        'CLOUDFLARE'  => 'Cloudflare',
+        'CLOUDNS'     => 'ClouDNS',
+        'DESEC'       => 'Desec',
+        'DNSIMPLE'    => 'DNSimple',
+        'HETZNER'     => 'Hetzner',
+        'POWERDNS'    => 'PowerDNS',
+        'VULTR'       => 'Vultr',
+    ];
+
+    return $providerNames[strtoupper($provider)] ?? ucfirst(strtolower($provider));
+}
+
 // Load environment variables
 $dotenv = Dotenv::createImmutable(__DIR__);
 $dotenv->load();
 
-// Get general API key and provider
-$apiKey = $_ENV['API_KEY'] ?? null;
-$provider = $_ENV['PROVIDER'] ?? null;
+// Get provider
+$provider = 'Desec' ?? null;
 
-// Get provider-specific configurations
-$bindip = $_ENV['BIND_IP'] ?? '127.0.0.1';
-$powerdnsip = $_ENV['POWERDNS_IP'] ?? '127.0.0.1';
-
-// ClouDNS authentication
-$cloudnsAuthId = $_ENV['AUTH_ID'] ?? null;
-$cloudnsAuthPassword = $_ENV['AUTH_PASSWORD'] ?? null;
-
-if (!$apiKey || !$provider) {
-    die("Error: Missing required environment variables in .env file (API_KEY or PROVIDER)\n");
+if (!$provider) {
+    die("Error: Missing required environment variables in .env file (PROVIDER)\n");
 }
 
-// If using ClouDNS, ensure credentials are set
-if ($provider === 'ClouDNS' && (!$cloudnsAuthId || !$cloudnsAuthPassword)) {
-    die("Error: Missing ClouDNS credentials (AUTH_ID and AUTH_PASSWORD) in .env\n");
+try {
+    $credentials = getProviderCredentials($provider);
+    $providerDisplay = getProviderDisplayName($provider);
+
+    $apiKey = $credentials['API_KEY'] ?? null;
+    $bindip = $credentials['BIND_IP'] ?? '127.0.0.1';
+    $powerdnsip = $credentials['POWERDNS_IP'] ?? '127.0.0.1';
+    $cloudnsAuthId = $credentials['AUTH_ID'] ?? null;
+    $cloudnsAuthPassword = $credentials['AUTH_PASSWORD'] ?? null;
+
+    if (!$apiKey) {
+        throw new Exception("Missing API Key for provider: $provider");
+    }
+} catch (Exception $e) {
+    echo "Error: " . $e->getMessage();
 }
 
 // Database configuration
@@ -78,7 +139,7 @@ try {
     echo "Creating a domain...\n";
     $domainOrder = [
         'client_id' => 1,
-        'config' => json_encode(['domain_name' => 'example.com', 'provider' => $provider, 'apikey' => $apiKey]),
+        'config' => json_encode(['domain_name' => 'example.com', 'provider' => $providerDisplay, 'apikey' => $apiKey]),
     ];
     $domain = $service->createDomain($domainOrder);
     print_r($domain);
@@ -92,7 +153,7 @@ try {
         'record_value' => '192.168.1.1',
         'record_ttl' => 3600,
         'record_priority' => 10, // Optional
-        'provider' => $provider,
+        'provider' => $providerDisplay,
         'apikey' => $apiKey
     ];
     $recordId = $service->addRecord($recordData);
@@ -107,7 +168,7 @@ try {
         'record_type' => 'A',
         'record_value' => '192.168.1.2',
         'record_ttl' => 7200,
-        'provider' => $provider,
+        'provider' => $providerDisplay,
         'apikey' => $apiKey
     ];
     $service->updateRecord($updateData);
@@ -121,7 +182,7 @@ try {
         'record_name' => 'www',
         'record_type' => 'A',
         'record_value' => '192.168.1.2',
-        'provider' => $provider,
+        'provider' => $providerDisplay,
         'apikey' => $apiKey
     ];
     $service->delRecord($deleteData);
@@ -129,7 +190,7 @@ try {
 
     // Step 6: Delete a domain
     echo "Deleting a domain...\n";
-    $service->deleteDomain(['config' => json_encode(['domain_name' => 'example.com', 'provider' => $provider, 'apikey' => $apiKey])]);
+    $service->deleteDomain(['config' => json_encode(['domain_name' => 'example.com', 'provider' => $providerDisplay, 'apikey' => $apiKey])]);
     echo "Domain deleted successfully.\n";
 
     // Step 7: Uninstall database structure
