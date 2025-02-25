@@ -154,7 +154,7 @@ class Service
 
         $params = [
             ':client_id' => $clientId,
-            ':config' => json_encode($config),
+            ':config' => json_encode(['provider' => $config['provider'] ?? null]),
             ':domain_name' => $domainName,
             ':created_at' => $now,
             ':updated_at' => $now,
