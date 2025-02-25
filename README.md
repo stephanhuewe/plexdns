@@ -38,32 +38,17 @@ mv .env-sample .env
 
 Most DNS providers **require an API key**, while some may need **additional settings** such as authentication credentials or specific server configurations. All required values must be set in the `.env` file.
 
-### 🔹 [AnycastDNS](https://anycastdns.app/) - NEEDS TESTING
-- **Required:** `API_KEY`
-
-### 🔹 Bind9
-- **Required:** `API_KEY` and `BIND_IP`
-
-### 🔹 Cloudflare - NEEDS TESTING
-- **Required:** `EMAIL:API_KEY`
-
-### 🔹 ClouDNS
-- **Required:** `AUTH_ID` and `AUTH_PASSWORD`
-
-### 🔹 Desec
-- **Required:** `API_KEY`
-
-### 🔹 DNSimple
-- **Required:** `API_KEY`
-
-### 🔹 Hetzner
-- **Required:** `API_KEY`
-
-### 🔹 PowerDNS
-- **Required:** `API_KEY` and `POWERDNS_IP`
-
-### 🔹 Vultr
-- **Required:** `API_KEY`
+| Provider    | Required Credentials |
+|------------|---------------------|
+| **[AnycastDNS](https://anycastdns.app/)** | `API_KEY` |
+| **Bind9** | `API_KEY`, `BIND_IP` |
+| **Cloudflare** | `EMAIL:API_KEY` |
+| **ClouDNS** | `AUTH_ID`, `AUTH_PASSWORD` |
+| **Desec** | `API_KEY` |
+| **DNSimple** | `API_KEY` |
+| **Hetzner** | `API_KEY` |
+| **PowerDNS** | `API_KEY`, `POWERDNS_IP` |
+| **Vultr** | `API_KEY` |
 
 ---
 
