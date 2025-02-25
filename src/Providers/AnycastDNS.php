@@ -18,7 +18,7 @@ class AnycastDNS implements DnsHostingProviderInterface {
         }
 
         $this->client = new Client([
-            'base_uri' => 'https://api.anycastdns.app/v1/',
+            'base_uri' => 'https://api.anycastdns.app/',
             'headers' => [
                 'Authorization' => 'Bearer ' . $this->apiKey,
                 'Accept' => 'application/json',
@@ -50,72 +50,92 @@ class AnycastDNS implements DnsHostingProviderInterface {
         }
 
         $params = ['name' => $domainName];
-        return $this->request('POST', 'zones', $params);
+        return $this->request('POST', 'domains', $params);
     }
 
     public function listDomains() {
-        return $this->request('GET', 'zones');
+        throw new \Exception("Not yet implemented");
     }
 
-    public function getDomain($domainId) {
-        if (empty($domainId)) {
-            throw new Exception("Domain ID cannot be empty");
+    public function getDomain($domainName) {
+        if (empty($domainName)) {
+            throw new Exception("Domain name cannot be empty");
         }
 
-        return $this->request('GET', "zones/{$domainId}");
+        return $this->request('GET', "domain/{$domainName}");
+    }
+    
+    public function getResponsibleDomain($qname) {
+        throw new \Exception("Not yet implemented");
     }
 
-    public function deleteDomain($domainId) {
-        if (empty($domainId)) {
-            throw new Exception("Domain ID cannot be empty");
+    public function exportDomainAsZonefile($domainName) {
+        throw new \Exception("Not yet implemented");
+    }
+
+    public function deleteDomain($domainName) {
+        if (empty($domainName)) {
+            throw new Exception("Domain name cannot be empty");
         }
 
-        return $this->request('DELETE', "zones/{$domainId}");
+        return $this->request('DELETE', "domains/{$domainName}");
     }
 
-    public function createRecord($domainId, $recordType, $name, $content, $ttl = 3600) {
-        if (empty($domainId) || empty($recordType) || empty($name) || empty($content)) {
-            throw new Exception("Domain ID, record type, name, and content cannot be empty");
-        }
-
-        $params = [
-            'type' => strtoupper($recordType),
-            'name' => $name,
-            'content' => $content,
-            'ttl' => $ttl,
-        ];
-
-        return $this->request('POST', "zones/{$domainId}/records", $params);
-    }
-
-    public function listRecords($domainId) {
-        if (empty($domainId)) {
-            throw new Exception("Domain ID cannot be empty");
-        }
-
-        return $this->request('GET', "zones/{$domainId}/records");
-    }
-
-    public function updateRecord($domainId, $recordId, $recordType, $name, $content, $ttl = 3600) {
-        if (empty($domainId) || empty($recordId) || empty($recordType) || empty($name) || empty($content)) {
-            throw new Exception("Domain ID, record ID, record type, name, and content cannot be empty");
+    public function createRRset($domainName, $rrsetData) {
+        if (empty($domainName) || !isset($rrsetData['subname'], $rrsetData['type'], $rrsetData['ttl'], $rrsetData['records'])) {
+            throw new Exception("Missing data for creating RRset");
         }
 
         $params = [
-            'type' => strtoupper($recordType),
-            'name' => $name,
-            'content' => $content,
-            'ttl' => $ttl,
+            'type' => strtoupper($rrsetData['type']),
+            'name' => $rrsetData['subname'],
+            'content' => $rrsetData['records'],
+            'ttl' => $rrsetData['ttl'],
         ];
 
-        return $this->request('PUT', "zones/{$domainId}/records/{$recordId}", $params);
+        return $this->request('POST', "dns/{$domainName}/record", $params);
     }
 
-    public function deleteRecord($domainId, $recordId) {
-        if (empty($domainId) || empty($recordId)) {
-            throw new Exception("Domain ID and record ID cannot be empty");
+    public function createBulkRRsets($domainName, $rrsetDataArray) {
+        throw new \Exception("Not yet implemented");
+    }
+    
+    public function retrieveAllRRsets($domainName) {
+        throw new \Exception("Not yet implemented");
+    }
+    
+    public function retrieveSpecificRRset($domainName, $subname, $type) {
+        throw new \Exception("Not yet implemented");
+    }
+
+    public function modifyRRset($domainName, $subname, $type, $rrsetData) {
+        if (empty($domainName) || empty($subname) || empty($type) || empty($rrsetData['ttl']) || empty($rrsetData['records'])) {
+            throw new Exception("Missing data for modifying RRset");
         }
 
-        return $this->request('DELETE', "zones/{$domainId}/records/{$recordId}");
+        $params = [
+            'type' => strtoupper($type),
+            'name' => $subname,
+            'content' => $rrsetData['records'],
+            'ttl' => $rrsetData['ttl'],
+        ];
+
+        return $this->request('PUT', "dns/{$domainName}/record/{$recordId}", $params);
+    }
+    
+    public function modifyBulkRRsets($domainName, $rrsetDataArray) {
+        throw new \Exception("Not yet implemented");
+    }
+
+    public function deleteRRset($domainName, $subname, $type, $value) {
+        if (empty($domainName) || empty($subname) || empty($type) || empty($value)) {
+            throw new Exception("Missing data for deleting RRset");
+        }
+
+        return $this->request('DELETE', "dns/{$domainName}/record/{$recordId}");
+    }
+    
+    public function deleteBulkRRsets($domainName, $rrsetDataArray) {
+        throw new \Exception("Not yet implemented");
     }
 }
