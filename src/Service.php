@@ -37,6 +37,9 @@ class Service
             case 'Bind':
                 $this->dnsProvider = new Providers\Bind($config);
                 break;
+            case 'Cloudflare':
+                $this->dnsProvider = new Providers\Cloudflare($config);
+                break;
             case 'ClouDNS':
                 $this->dnsProvider = new Providers\ClouDNS($config);
                 break;
@@ -87,13 +90,6 @@ class Service
     {
         $stmt = $this->db->prepare($query);
         return $stmt->execute($params);
-    }
-
-    public function fetchQuery(string $query, array $params = []): array
-    {
-        $stmt = $this->db->prepare($query);
-        $stmt->execute($params);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function createDomain(array $order): array
@@ -213,7 +209,7 @@ class Service
         try {
             $this->db->beginTransaction(); 
 
-            $result = $this->fetchQuery($query, $params);
+            $result = $this->fetchData($query, $params);
             $domainId = $result[0]['id'] ?? null;
 
             if (!$domainId) {

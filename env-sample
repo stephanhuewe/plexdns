@@ -1,4 +1,4 @@
-PROVIDER=Desec         # AnycastDNS, Bind, ClouDNS, Desec, DNSimple, Hetzner, PowerDNS, Vultr
+PROVIDER=Desec         # AnycastDNS, Bind, Cloudflare, ClouDNS, Desec, DNSimple, Hetzner, PowerDNS, Vultr
 API_KEY=your-api-key   # General API Key
 
 BIND_IP=127.0.0.1      # IP address of your BIND9 server
