@@ -1,5 +1,17 @@
 <?php
 
+/* $config = [
+    'apikey' => 'masterUser:masterPass',
+    'bindip' => '192.168.1.100',  // Master BIND9 server IP
+
+    // Optional: Add slave servers dynamically
+    'apikey_ns2' => 'slaveUser1:slavePass1',
+    'bindip_ns2' => '192.168.1.101',
+
+    'apikey_ns3' => 'slaveUser2:slavePass2',
+    'bindip_ns3' => '192.168.1.102',
+]; */
+
 namespace PlexDNS\Providers;
 
 use Namingo\Bind9Api\ApiClient;
@@ -8,29 +20,44 @@ use Spatie\Dns\Dns;
 class Bind implements DnsHostingProviderInterface {
     private $client;
     private $api_ip;
+    private $slaveClients = [];
 
     public function __construct($config) {
         $token = $config['apikey'];
         $api_ip = $config['bindip'];
+
         if (empty($token)) {
             throw new \Exception("API token cannot be empty");
         }
         if (empty($api_ip)) {
             $api_ip = '127.0.0.1';
         }
-        
+
         // Split the token into username and password
         list($username, $password) = explode(':', $token, 2);
-        
+
         if (empty($username) || empty($password)) {
             throw new \Exception("API token must be in the format 'username:password'");
         }
 
         $this->api_ip = $api_ip;
-
         $this->client = new ApiClient('http://'.$api_ip.':7650');
-        
         $this->client->login($username, $password);
+
+        for ($i = 2; $i <= 13; $i++) {
+            $slaveApiKey = $config["apikey_ns$i"] ?? null;
+            $slaveApiIp = $config["bindip_ns$i"] ?? null;
+
+            if ($slaveApiKey && $slaveApiIp) {
+                list($slaveUser, $slavePass) = explode(':', $slaveApiKey, 2);
+                
+                if (!empty($slaveUser) && !empty($slavePass)) {
+                    $slaveClient = new ApiClient('http://' . $slaveApiIp . ':7650');
+                    $slaveClient->login($slaveUser, $slavePass);
+                    $this->slaveClients[] = $slaveClient;
+                }
+            }
+        }
     }
 
     public function createDomain($domainName) {
@@ -40,7 +67,11 @@ class Bind implements DnsHostingProviderInterface {
 
         try {
             $this->client->addZone($domainName);
-            // On successful creation, simply return true.
+
+            foreach ($this->slaveClients as $slaveClient) {
+                $slaveClient->addSlaveZone($domainName, $this->api_ip);
+            }
+
             return true;
         } catch (\Exception $e) {
             // Throw an exception to indicate failure, including for conflicts.
@@ -81,12 +112,20 @@ class Bind implements DnsHostingProviderInterface {
         if (empty($domainName)) {
             throw new \Exception("Domain name cannot be empty");
         }
-        
-        $this->client->deleteZone($domainName);
 
-        return json_decode($domainName, true);
+        try {
+            foreach ($this->slaveClients as $slaveClient) {
+                $slaveClient->deleteSlaveZone($domainName);
+            }
+
+            $this->client->deleteZone($domainName);
+
+            return json_decode($domainName, true);
+        } catch (\Exception $e) {
+            throw new \Exception("Failed to delete zone for domain: " . $domainName . ". Error: " . $e->getMessage());
+        }
     }
-    
+
     public function createRRset($domainName, $rrsetData) {
         if (empty($domainName)) {
             throw new \Exception("Domain name cannot be empty");

@@ -50,6 +50,41 @@ Most DNS providers **require an API key**, while some may need **additional sett
 | **PowerDNS** | `API_KEY`, `POWERDNS_IP` |
 | **Vultr** | `API_KEY` |
 
+### Slave Zone Support
+
+Different DNS providers handle slave (secondary) zones differently. **BIND9 and PowerDNS require explicit slave configuration**, meaning you must manually add the slave servers to your `$config` array for them to sync from the master. This involves passing the necessary API details, such as `apikey_nsX` and `bindip_nsX` for BIND9 or `powerdnsip_nsX` for PowerDNS. In contrast, **cloud-based DNS providers handle replication automatically**, so there is no need to configure slave servers manually. Once a zone is added, it is automatically synchronized across their global infrastructure without additional setup.
+
+**BIND9 Example**
+
+```php
+$config = [
+    'apikey' => 'masterUser:masterPass',  // Master API Key
+    'bindip' => '192.168.1.100',  // Master BIND9 server IP
+
+    // Slave 1 (NS2)
+    'apikey_ns2' => 'slaveUser1:slavePass1',
+    'bindip_ns2' => '192.168.1.101',
+    
+    // You can add up to 13 slave servers (NS2 to NS13)
+];
+```
+
+**PowerDNS Example**
+
+```php
+$config = [
+    'apikey' => 'master_api_key',  // Master PowerDNS API Key
+    'powerdnsip' => '127.0.0.1',  // Master PowerDNS IP
+    'pdns_master_ip' => '192.168.1.1', // Master IP for slaves to sync from
+
+    // Slave 1 (NS2)
+    'apikey_ns2' => 'slave2_api_key',
+    'powerdnsip_ns2' => '192.168.1.2',
+
+    // You can add up to 13 slave servers (NS2 to NS13)
+];
+```
+
 ---
 
 ## Acknowledgements
